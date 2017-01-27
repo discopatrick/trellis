@@ -1,10 +1,11 @@
 ---
-- include: variable-check.yml
-  vars:
-    playbook: deploy.yml
+# TODO: update variable-check for this playbook
+# - include: variable-check.yml
+#   vars:
+#     playbook: deploy.yml
 
 - name: Sync WP site
-  hosts: web:&{{ env }}
+  hosts: web:&{{ dest }}
   remote_user: "{{ web_user }}"
 
   vars:
@@ -15,14 +16,14 @@
     project_root: "{{ www_root }}/{{ site }}"
     wordpress_env_defaults:
       db_host: localhost
-      db_name: "{{ site | underscore }}_{{ env }}"
+      db_name: "{{ site | underscore }}_{{ dest }}"
       db_user: "{{ site | underscore }}"
       disable_wp_cron: true
-      wp_env: "{{ env }}"
+      wp_env: "{{ dest }}"
       wp_home: "{{ project.ssl.enabled | default(false) | ternary('https', 'http') }}://{{ project.site_hosts | map(attribute='canonical') | first }}"
       wp_siteurl: "{{ project.ssl.enabled | default(false) | ternary('https', 'http') }}://{{ project.site_hosts | map(attribute='canonical') | first }}/wp"
-    site_env: "{{ wordpress_env_defaults | combine(project.env | default({}), vault_wordpress_sites[site].env) }}"
-    project_local_path: "{{ (lookup('env', 'USER') == 'vagrant') | ternary(project_root + '/' + project_current_path, project.local_path) }}"
+    site_env: "{{ wordpress_env_defaults | combine(project.dest | default({}), vault_wordpress_sites[site].dest) }}"
+    project_local_path: "{{ (lookup('dest', 'USER') == 'vagrant') | ternary(project_root + '/' + project_current_path, project.local_path) }}"
 
   pre_tasks:
     - name: Ensure site is valid
@@ -36,7 +37,7 @@
       fail:
         msg: |
           Invalid Git repository.
-          Ensure that your site's `repo` variable is defined in `group_vars/{{ env }}/wordpress_sites.yml` and uses the SSH format (example: git@github.com:roots/bedrock.git)
+          Ensure that your site's `repo` variable is defined in `group_vars/{{ dest }}/wordpress_sites.yml` and uses the SSH format (example: git@github.com:roots/bedrock.git)
           More info:
           > https://roots.io/trellis/docs/deploys/
       when: project.repo is not defined or not project.repo | match(".*@.*:.*\.git")
