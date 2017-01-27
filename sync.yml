@@ -3,7 +3,7 @@
   vars:
     playbook: deploy.yml
 
-- name: Deploy WP site
+- name: Sync WP site
   hosts: web:&{{ env }}
   remote_user: "{{ web_user }}"
 
@@ -28,7 +28,7 @@
     - name: Ensure site is valid
       connection: local
       fail:
-        msg: "Site `{{ site | default('') }}` is not valid. Available sites to deploy: {{ wordpress_sites.keys() | join(', ') }}"
+        msg: "Site `{{ site | default('') }}` is not valid. Available sites to sync: {{ wordpress_sites.keys() | join(', ') }}"
       when: wordpress_sites[site | default('')] is not defined
 
     - name: Ensure repo is valid
@@ -41,5 +41,11 @@
           > https://roots.io/trellis/docs/deploys/
       when: project.repo is not defined or not project.repo | match(".*@.*:.*\.git")
 
-  roles:
-    - deploy
+  tasks:
+    - name: get hostname
+      command: hostname
+      register: hostname
+
+    - name: print hostname
+      debug:
+        var: hostname.stdout
