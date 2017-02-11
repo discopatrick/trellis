@@ -50,3 +50,15 @@
     - name: print hostname
       debug:
         var: hostname.stdout
+
+    - name: create folder on src to sync
+      file:
+        state: directory
+        path: /home/web/syncthis
+      delegate_to: "{{ groups['production'][0] }}"  
+
+    - name: sync dest folder with src folder
+      synchronize:
+        src: /home/web/syncthis
+        dest: /home/web
+      delegate_to: "{{ groups['production'][0] }}"  
