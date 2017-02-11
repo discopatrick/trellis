@@ -55,10 +55,25 @@
       file:
         state: directory
         path: /home/web/syncthis
-      delegate_to: "{{ groups['production'][0] }}"  
+      delegate_to: "{{ groups['production'][0] }}"
+
+    - name: create file on src to sync
+      file:
+        state: touch
+        path: /home/web/syncthis/{{ ansible_date_time.epoch }}
+      delegate_to: "{{ groups['production'][0] }}"
 
     - name: sync dest folder with src folder
       synchronize:
         src: /home/web/syncthis
         dest: /home/web
-      delegate_to: "{{ groups['production'][0] }}"  
+      delegate_to: "{{ groups['production'][0] }}"
+
+    - name: check file was synced
+      stat:
+        path: /home/web/syncthis/{{ ansible_date_time.epoch }}
+      register: stat_result
+
+    - fail:
+        msg: 'file was not synced'
+      when: stat_result.stat.exists == False
