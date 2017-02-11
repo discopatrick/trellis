@@ -108,3 +108,8 @@
       command: wp db import {{ dest_homedir.stdout }}/{{ site }}_{{ src }}_{{ ansible_date_time.epoch }}.sql
       args:
         chdir: "{{ site_path }}"
+
+    - name: wp-cli search-replace on domain names
+      command: wp search-replace {{ hostvars[groups[src][0]].wordpress_sites[site]['site_hosts'][0]['canonical'] }} {{ wordpress_sites[site]['site_hosts'][0]['canonical'] }}
+      args:
+        chdir: "{{ site_path }}"
