@@ -25,6 +25,10 @@
     site_env: "{{ wordpress_env_defaults | combine(project.env | default({}), vault_wordpress_sites[site].env) }}"
     project_local_path: "{{ (lookup('env', 'USER') == 'vagrant') | ternary(project_root + '/' + project_current_path, project.local_path) }}"
 
+    project_current_path: "{{ project.current_path | default('current') }}"
+    shared_path: "{{ project_root }}/shared"
+    uploads_path: "{{ shared_path }}/uploads"
+
   pre_tasks:
     - name: Ensure site is valid
       connection: local
@@ -51,27 +55,21 @@
       debug:
         var: hostname.stdout
 
-    - name: create folder on src to sync
-      file:
-        state: directory
-        path: /home/web/syncthis
-      delegate_to: "{{ groups['production'][0] }}"
-
     - name: create file on src to sync
       file:
         state: touch
-        path: /home/web/syncthis/{{ ansible_date_time.epoch }}
+        path: "{{ uploads_path }}/{{ ansible_date_time.epoch }}"
       delegate_to: "{{ groups['production'][0] }}"
 
     - name: sync dest folder with src folder
       synchronize:
-        src: /home/web/syncthis
-        dest: /home/web
+        src: "{{ uploads_path }}"
+        dest: "{{ shared_path }}"
       delegate_to: "{{ groups['production'][0] }}"
 
     - name: check file was synced
       stat:
-        path: /home/web/syncthis/{{ ansible_date_time.epoch }}
+        path: "{{ uploads_path }}/{{ ansible_date_time.epoch }}"
       register: stat_result
 
     - fail:
