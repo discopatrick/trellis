@@ -26,6 +26,7 @@
     project_local_path: "{{ (lookup('env', 'USER') == 'vagrant') | ternary(project_root + '/' + project_current_path, project.local_path) }}"
 
     project_current_path: "{{ project.current_path | default('current') }}"
+    site_path: "{{ project_root }}/{{ project_current_path }}/web"
     shared_path: "{{ project_root }}/shared"
     uploads_path: "{{ shared_path }}/uploads"
 
@@ -47,6 +48,7 @@
       when: project.repo is not defined or not project.repo | match(".*@.*:.*\.git")
 
   tasks:
+
     - name: get hostname
       command: hostname
       register: hostname
@@ -55,17 +57,26 @@
       debug:
         var: hostname.stdout
 
+    - name: get dest home directory
+      command: echo $HOME
+      register: dest_homedir
+
+    - name: get src home directory
+      command: echo $HOME
+      register: src_homedir      
+      delegate_to: "{{ groups[src][0] }}"
+
     - name: create file on src to sync
       file:
         state: touch
         path: "{{ uploads_path }}/{{ ansible_date_time.epoch }}"
-      delegate_to: "{{ groups['production'][0] }}"
+      delegate_to: "{{ groups[src][0] }}"
 
     - name: sync dest folder with src folder
       synchronize:
-        src: "{{ uploads_path }}"
-        dest: "{{ shared_path }}"
-      delegate_to: "{{ groups['production'][0] }}"
+        src: "{{ uploads_path }}/"
+        dest: "{{ uploads_path }}"
+      delegate_to: "{{ groups[src][0] }}"
 
     - name: check file was synced
       stat:
@@ -75,3 +86,25 @@
     - fail:
         msg: 'file was not synced'
       when: stat_result.stat.exists == False
+
+    - name: backup db on src
+      command: wp db export {{ src_homedir.stdout }}/{{ site }}_{{ src }}_{{ ansible_date_time.epoch }}.sql
+      args:
+        chdir: "{{ site_path }}"
+      delegate_to: "{{ groups[src][0] }}"
+
+    - name: send db backup from src to dest
+      synchronize:
+        src: "{{ src_homedir.stdout }}/{{ site }}_{{ src }}_{{ ansible_date_time.epoch }}.sql"
+        dest: "{{ dest_homedir.stdout }}/"
+      delegate_to: "{{ groups[src][0] }}"
+
+    - name: reset db on dest
+      command: wp db reset --yes
+      args:
+        chdir: "{{ site_path }}"
+
+    - name: import db on dest
+      command: wp db import {{ dest_homedir.stdout }}/{{ site }}_{{ src }}_{{ ansible_date_time.epoch }}.sql
+      args:
+        chdir: "{{ site_path }}"
