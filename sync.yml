@@ -73,7 +73,7 @@
 
     - name: sync dest folder with src folder
       synchronize:
-        src: "{{ uploads_path }}/"
+        src: "{{ uploads_path }}/" # trailing slash means "copy contents but not the dir"
         dest: "{{ uploads_path }}"
       delegate_to: "{{ groups[src][0] }}"
 
