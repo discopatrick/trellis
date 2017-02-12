@@ -1,8 +1,7 @@
 ---
-# TODO: update variable-check for this playbook
-# - include: variable-check.yml
-#   vars:
-#     playbook: deploy.yml
+- include: variable-check.yml
+  vars:
+    playbook: sync.yml
 
 - name: Sync WP site
   hosts: web:&{{ dest }}
