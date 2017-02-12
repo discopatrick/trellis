@@ -68,7 +68,7 @@
     - name: create file on src to sync
       file:
         state: touch
-        path: "{{ uploads_path }}/{{ ansible_date_time.epoch }}"
+        path: "{{ uploads_path }}/{{ ansible_date_time.iso8601_basic_short }}"
       delegate_to: "{{ groups[src][0] }}"
 
     - name: sync dest folder with src folder
@@ -79,7 +79,7 @@
 
     - name: check file was synced
       stat:
-        path: "{{ uploads_path }}/{{ ansible_date_time.epoch }}"
+        path: "{{ uploads_path }}/{{ ansible_date_time.iso8601_basic_short }}"
       register: stat_result
 
     - fail:
