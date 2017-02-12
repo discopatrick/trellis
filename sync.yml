@@ -82,11 +82,14 @@
       debug:
         var: dest_homedir.stdout
 
+    - debug:
+        var: hostvars[groups[src][0]].web_user
+
     - name: get src home directory
       command: echo $HOME
       register: src_homedir      
       delegate_to: "{{ groups[src][0] }}"
-      ignore_errors: yes
+      remote_user: "{{ hostvars[groups[src][0]].web_user }}"
 
     - include: "sync-files-remote-to-remote.yml"
       when: "'development' not in [src, dest]"
