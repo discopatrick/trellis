@@ -3,6 +3,8 @@
   vars:
     playbook: sync.yml
 
+# TODO: split playbook into at least two plays - one for db, one for rsync. This will be necessary because the rsync/syncronize module requires very specific host-in-context and delegate_to values in order to work.
+
 - name: Sync WP site
   hosts: web:&{{ dest }}
   remote_user: "{{ (dest == 'development') | ternary('vagrant', web_user) }}"

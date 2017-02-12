@@ -10,11 +10,18 @@
   delegate_to: "{{ groups[src][0] }}"
   remote_user: "{{ hostvars[groups[src][0]].web_user }}"
 
-- name: sync dest folder with src folder
-  synchronize:
-    src: "{{ uploads_path }}/" # trailing slash means "copy contents but not the dir"
-    dest: "{{ project_local_path }}/web/app/uploads/"
-    mode: pull
+## This will not work, because the group in context is 'development', hence we cannot pull to the host os filesystem, and if we specify a delegate, it will try to pull from 'development' to that delegate, which isn't what we want. See note in sync.yml about splitting into separate plays.
+
+# - name: sync dest folder with src folder
+#   synchronize:
+#     src: "{{ uploads_path }}/" # trailing slash means "copy contents but not the dir"
+#     dest: "{{ project_local_path }}/web/app/uploads/"
+#     mode: pull
+#   delegate_to: "{{ groups[src][0] }}"
+#   remote_user: "{{ hostvars[groups[src][0]].web_user }}"
+
+- fail:
+    msg: fail
 
 # - name: check file was synced
 #   stat:
