@@ -8,6 +8,7 @@
     state: touch
     path: "{{ uploads_path }}/{{ ansible_date_time.iso8601_basic_short }}"
   delegate_to: "{{ groups[src][0] }}"
+  remote_user: "{{ hostvars[groups[src][0]].web_user }}"
 
 - name: sync dest folder with src folder
   synchronize:
