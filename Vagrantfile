@@ -110,7 +110,10 @@ Vagrant.configure('2') do |config|
 
     ansible.groups = {
       'web' => ['default'],
-      'development' => ['default']
+      'development' => ['default'],
+      'development:vars' => {
+        'ansible_ssh_extra_args' => "\"-o StrictHostKeyChecking=no\"",
+      }
     }
 
     if tags = ENV['ANSIBLE_TAGS']
