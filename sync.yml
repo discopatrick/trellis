@@ -5,7 +5,7 @@
 
 - name: Sync WP site
   hosts: web:&{{ dest }}
-  remote_user: "{{ web_user }}"
+  remote_user: "{{ (dest == 'development') | ternary('vagrant', web_user) }}"
 
   vars:
     deploy_build_before: "{{ playbook_dir }}/deploy-hooks/build-before.yml"
@@ -22,29 +22,47 @@
       wp_home: "{{ project.ssl.enabled | default(false) | ternary('https', 'http') }}://{{ project.site_hosts | map(attribute='canonical') | first }}"
       wp_siteurl: "{{ project.ssl.enabled | default(false) | ternary('https', 'http') }}://{{ project.site_hosts | map(attribute='canonical') | first }}/wp"
     site_env: "{{ wordpress_env_defaults | combine(project.env | default({}), vault_wordpress_sites[site].env) }}"
-    project_local_path: "{{ (lookup('env', 'USER') == 'vagrant') | ternary(project_root + '/' + project_current_path, project.local_path) }}"
 
     project_current_path: "{{ project.current_path | default('current') }}"
     site_path: "{{ project_root }}/{{ project_current_path }}/web"
     shared_path: "{{ project_root }}/shared"
     uploads_path: "{{ shared_path }}/uploads"
 
+    project_local_path: "{{ (lookup('env', 'USER') == 'vagrant') | ternary(project_root + '/' + project_current_path, project.local_path) }}"
+
+    test_remote_user: "{{ (dest == 'development') | ternary('vagrant', web_user) }}"
+
   pre_tasks:
+
+    - debug:
+        var: test_remote_user
+
     - name: Ensure site is valid
+      # TODO: check the site on both dest and src
       connection: local
       fail:
         msg: "Site `{{ site | default('') }}` is not valid. Available sites to sync: {{ wordpress_sites.keys() | join(', ') }}"
       when: wordpress_sites[site | default('')] is not defined
 
-    - name: Ensure repo is valid
-      connection: local
-      fail:
-        msg: |
-          Invalid Git repository.
-          Ensure that your site's `repo` variable is defined in `group_vars/{{ dest }}/wordpress_sites.yml` and uses the SSH format (example: git@github.com:roots/bedrock.git)
-          More info:
-          > https://roots.io/trellis/docs/deploys/
-      when: project.repo is not defined or not project.repo | match(".*@.*:.*\.git")
+    ## No repo required for sync
+    # - name: Ensure repo is valid
+    #   connection: local
+    #   fail:
+    #     msg: |
+    #       Invalid Git repository.
+    #       Ensure that your site's `repo` variable is defined in `group_vars/{{ dest }}/wordpress_sites.yml` and uses the SSH format (example: git@github.com:roots/bedrock.git)
+    #       More info:
+    #       > https://roots.io/trellis/docs/deploys/
+    #   when: project.repo is not defined or not project.repo | match(".*@.*:.*\.git")
+
+  ## NOTE: problems when running against the 'development' group:
+  ## * by default, ansible will look in the hosts/development file, which is supposed to be for Windows hosts only. Therefore, use the `-i` flag as documented in said file. This could be a problem going forward. Do we need to symlink/inventory-script the vagrant-generated file to this directory? And combine the windows settings into the generated file?
+  ## * current version of ansible (2.0.2.0) has problems connecting to vagrant boxes. See https://github.com/ansible/ansible/issues/15321
+  ## * pinging helped the above issue on one occasion: https://github.com/ansible/ansible/issues/15321#issuecomment-256346976
+  ## * adding `-c paramiko -u vagrant` to the command can supposedly help - unsuccessful for me.
+  ## * some people say various ansilbe versions will work:
+  ##     - https://github.com/ansible/ansible/issues/15321#issuecomment-256781623
+  ##     - https://github.com/ansible/ansible/issues/15321#issuecomment-256979582
 
   tasks:
 
@@ -60,31 +78,21 @@
       command: echo $HOME
       register: dest_homedir
 
+    - name: print dest home directory
+      debug:
+        var: dest_homedir.stdout
+
     - name: get src home directory
       command: echo $HOME
       register: src_homedir      
       delegate_to: "{{ groups[src][0] }}"
+      ignore_errors: yes
 
-    - name: create file on src to sync
-      file:
-        state: touch
-        path: "{{ uploads_path }}/{{ ansible_date_time.iso8601_basic_short }}"
-      delegate_to: "{{ groups[src][0] }}"
+    - include: "sync-files-remote-to-remote.yml"
+      when: "'development' not in [src, dest]"
 
-    - name: sync dest folder with src folder
-      synchronize:
-        src: "{{ uploads_path }}/" # trailing slash means "copy contents but not the dir"
-        dest: "{{ uploads_path }}"
-      delegate_to: "{{ groups[src][0] }}"
-
-    - name: check file was synced
-      stat:
-        path: "{{ uploads_path }}/{{ ansible_date_time.iso8601_basic_short }}"
-      register: stat_result
-
-    - fail:
-        msg: 'file was not synced'
-      when: stat_result.stat.exists == False
+    - include: "sync-files-remote-to-vagrant.yml"
+      when: "dest == 'development'"
 
     - name: backup db on src
       command: wp db export {{ src_homedir.stdout }}/{{ site }}_{{ src }}_{{ ansible_date_time.epoch }}.sql

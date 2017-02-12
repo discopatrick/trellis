@@ -1,0 +1,25 @@
+---
+
+- debug:
+    var: project_local_path
+
+- name: create file on src to sync
+  file:
+    state: touch
+    path: "{{ uploads_path }}/{{ ansible_date_time.iso8601_basic_short }}"
+  delegate_to: "{{ groups[src][0] }}"
+
+- name: sync dest folder with src folder
+  synchronize:
+    src: "{{ uploads_path }}/" # trailing slash means "copy contents but not the dir"
+    dest: "{{ project_local_path }}/web/app/uploads/"
+    mode: pull
+
+# - name: check file was synced
+#   stat:
+#     path: "{{ uploads_path }}/{{ ansible_date_time.iso8601_basic_short }}"
+#   register: stat_result
+
+# - fail:
+#     msg: 'file was not synced'
+#   when: stat_result.stat.exists == False
