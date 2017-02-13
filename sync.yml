@@ -5,6 +5,45 @@
 
 # TODO: split playbook into at least two plays - one for db, one for rsync. This will be necessary because the rsync/syncronize module requires very specific host-in-context and delegate_to values in order to work.
 
+- name: sync uploads from remote to vagrant
+  hosts: web:&{{ src }}
+  remote_user: "{{ web_user }}"
+
+  vars:
+    project: "{{ wordpress_sites[site] }}"
+    project_root: "{{ www_root }}/{{ site }}"
+    project_current_path: "{{ project.current_path | default('current') }}"
+    site_path: "{{ project_root }}/{{ project_current_path }}/web"
+    shared_path: "{{ project_root }}/shared"
+    uploads_path: "{{ shared_path }}/uploads"
+    project_local_path: "{{ (lookup('env', 'USER') == 'vagrant') | ternary(project_root + '/' + project_current_path, project.local_path) }}"
+
+  tasks:
+
+    - name: create file on src to sync
+      file:
+        state: touch
+        path: "{{ uploads_path }}/{{ ansible_date_time.iso8601_basic_short }}"
+      when: "dest == 'development'"
+
+    - name: sync
+      synchronize:
+        src: "{{ uploads_path }}/"
+        dest: "{{ project_local_path }}/web/app/uploads/"
+        mode: pull
+      when: "dest == 'development'"
+
+    - name: check file was synced
+      stat:
+        path: "{{ project_local_path }}/web/app/uploads/{{ ansible_date_time.iso8601_basic_short }}"
+      register: stat_result
+      delegate_to: 127.0.0.1
+      when: "dest == 'development'"
+
+    - fail:
+        msg: 'file was not synced'
+      when: "dest == 'development' and stat_result.stat.exists == False"
+
 - name: Sync WP database
   hosts: web:&{{ dest }}
   remote_user: "{{ web_user }}"
@@ -19,6 +58,10 @@
     project_local_path: "{{ (lookup('env', 'USER') == 'vagrant') | ternary(project_root + '/' + project_current_path, project.local_path) }}"
 
   pre_tasks:
+
+    - fail:
+        msg: skip this play for now
+
     - name: Ensure site is valid
       # TODO: check the site on both dest and src
       connection: local
