@@ -5,6 +5,66 @@
 
 # TODO: split playbook into at least two plays - one for db, one for rsync. This will be necessary because the rsync/syncronize module requires very specific host-in-context and delegate_to values in order to work.
 
+- name: Sync WP database
+  hosts: web:&{{ dest }}
+  remote_user: "{{ web_user }}"
+
+  vars:
+    project: "{{ wordpress_sites[site] }}"
+    project_root: "{{ www_root }}/{{ site }}"
+    project_current_path: "{{ project.current_path | default('current') }}"
+    site_path: "{{ project_root }}/{{ project_current_path }}/web"
+    shared_path: "{{ project_root }}/shared"
+    uploads_path: "{{ shared_path }}/uploads"
+    project_local_path: "{{ (lookup('env', 'USER') == 'vagrant') | ternary(project_root + '/' + project_current_path, project.local_path) }}"
+
+  pre_tasks:
+    - name: Ensure site is valid
+      # TODO: check the site on both dest and src
+      connection: local
+      fail:
+        msg: "Site `{{ site | default('') }}` is not valid. Available sites to sync: {{ wordpress_sites.keys() | join(', ') }}"
+      when: wordpress_sites[site | default('')] is not defined
+
+  tasks:
+
+    - name: get dest home directory
+      command: echo $HOME
+      register: dest_homedir
+
+    - name: get src home directory
+      command: echo $HOME
+      register: src_homedir      
+      delegate_to: "{{ groups[src][0] }}"
+      remote_user: "{{ hostvars[groups[src][0]].web_user }}"
+
+    - name: backup db on src
+      command: wp db export {{ src_homedir.stdout }}/{{ site }}_{{ src }}_{{ ansible_date_time.epoch }}.sql
+      args:
+        chdir: "{{ site_path }}"
+      delegate_to: "{{ groups[src][0] }}"
+
+    - name: send db backup from src to dest
+      synchronize:
+        src: "{{ src_homedir.stdout }}/{{ site }}_{{ src }}_{{ ansible_date_time.epoch }}.sql"
+        dest: "{{ dest_homedir.stdout }}/"
+      delegate_to: "{{ groups[src][0] }}"
+
+    - name: reset db on dest
+      command: wp db reset --yes
+      args:
+        chdir: "{{ site_path }}"
+
+    - name: import db on dest
+      command: wp db import {{ dest_homedir.stdout }}/{{ site }}_{{ src }}_{{ ansible_date_time.epoch }}.sql
+      args:
+        chdir: "{{ site_path }}"
+
+    - name: wp-cli search-replace on domain names
+      command: wp search-replace {{ hostvars[groups[src][0]].wordpress_sites[site]['site_hosts'][0]['canonical'] }} {{ wordpress_sites[site]['site_hosts'][0]['canonical'] }}
+      args:
+        chdir: "{{ site_path }}"
+
 - name: Sync WP site
   hosts: web:&{{ dest }}
   remote_user: "{{ (dest == 'development') | ternary('vagrant', web_user) }}" # actually, isn't web_user already set to 'vagrant' in dev group_vars?
@@ -35,6 +95,9 @@
     test_remote_user: "{{ (dest == 'development') | ternary('vagrant', web_user) }}"
 
   pre_tasks:
+
+    - fail:
+        msg: skip this play right now
 
     - debug:
         var: test_remote_user
