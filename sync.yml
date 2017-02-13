@@ -125,3 +125,5 @@
       command: wp search-replace {{ hostvars[groups[src][0]].wordpress_sites[site]['site_hosts'][0]['canonical'] }} {{ wordpress_sites[site]['site_hosts'][0]['canonical'] }}
       args:
         chdir: "{{ site_path }}"
+
+    # TODO: deal with WSOD after sync
