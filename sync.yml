@@ -10,20 +10,20 @@
   remote_user: "{{ (dest == 'development') | ternary('vagrant', web_user) }}"
 
   vars:
-    deploy_build_before: "{{ playbook_dir }}/deploy-hooks/build-before.yml"
-    deploy_build_after: "{{ playbook_dir }}/roles/deploy/hooks/build-after.yml"
-    deploy_finalize_after: "{{ playbook_dir }}/roles/deploy/hooks/finalize-after.yml"
+    # deploy_build_before: "{{ playbook_dir }}/deploy-hooks/build-before.yml"
+    # deploy_build_after: "{{ playbook_dir }}/roles/deploy/hooks/build-after.yml"
+    # deploy_finalize_after: "{{ playbook_dir }}/roles/deploy/hooks/finalize-after.yml"
     project: "{{ wordpress_sites[site] }}"
     project_root: "{{ www_root }}/{{ site }}"
-    wordpress_env_defaults:
-      db_host: localhost
-      db_name: "{{ site | underscore }}_{{ dest }}"
-      db_user: "{{ site | underscore }}"
-      disable_wp_cron: true
-      wp_env: "{{ dest }}"
-      wp_home: "{{ project.ssl.enabled | default(false) | ternary('https', 'http') }}://{{ project.site_hosts | map(attribute='canonical') | first }}"
-      wp_siteurl: "{{ project.ssl.enabled | default(false) | ternary('https', 'http') }}://{{ project.site_hosts | map(attribute='canonical') | first }}/wp"
-    site_env: "{{ wordpress_env_defaults | combine(project.env | default({}), vault_wordpress_sites[site].env) }}"
+    # wordpress_env_defaults:
+    #   db_host: localhost
+    #   db_name: "{{ site | underscore }}_{{ dest }}"
+    #   db_user: "{{ site | underscore }}"
+    #   disable_wp_cron: true
+    #   wp_env: "{{ dest }}"
+    #   wp_home: "{{ project.ssl.enabled | default(false) | ternary('https', 'http') }}://{{ project.site_hosts | map(attribute='canonical') | first }}"
+    #   wp_siteurl: "{{ project.ssl.enabled | default(false) | ternary('https', 'http') }}://{{ project.site_hosts | map(attribute='canonical') | first }}/wp"
+    # site_env: "{{ wordpress_env_defaults | combine(project.env | default({}), vault_wordpress_sites[site].env) }}"
 
     project_current_path: "{{ project.current_path | default('current') }}"
     site_path: "{{ project_root }}/{{ project_current_path }}/web"
