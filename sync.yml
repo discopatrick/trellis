@@ -5,7 +5,7 @@
 
 # TODO: split playbook into at least two plays - one for db, one for rsync. This will be necessary because the rsync/syncronize module requires very specific host-in-context and delegate_to values in order to work.
 
-- name: sync uploads from remote to vagrant
+- name: sync site from remote to vagrant
   hosts: web:&{{ src }}
   remote_user: "{{ web_user }}"
 
@@ -17,6 +17,7 @@
     shared_path: "{{ project_root }}/shared"
     uploads_path: "{{ shared_path }}/uploads"
     project_local_path: "{{ (lookup('env', 'USER') == 'vagrant') | ternary(project_root + '/' + project_current_path, project.local_path) }}"
+    project_local_web_path: "{{ (lookup('env', 'USER') == 'vagrant') | ternary(project_root + '/' + project_current_path, project.local_path) }}/web"
 
   tasks:
 
@@ -43,6 +44,43 @@
     - fail:
         msg: 'file was not synced'
       when: "dest == 'development' and stat_result.stat.exists == False"
+
+    - name: get src home directory
+      command: echo $HOME
+      register: src_homedir      
+      when: "dest == 'development'"
+
+    - name: backup db on src
+      command: wp db export {{ src_homedir.stdout }}/{{ site }}_{{ src }}_{{ ansible_date_time.epoch }}.sql
+      args:
+        chdir: "{{ site_path }}"
+      when: "dest == 'development'"
+
+    - name: pull db backup from src to shared folder
+      synchronize:
+        src: "{{ src_homedir.stdout }}/{{ site }}_{{ src }}_{{ ansible_date_time.epoch }}.sql"
+        dest: "{{ project_local_path }}/"
+        mode: pull
+      when: "dest == 'development'"
+
+    - name: reset db on vagrant
+      command: wp db reset --yes
+      args:
+        chdir: "{{ site_path }}"
+      register: reset_result
+
+    - debug:
+        var: reset_result
+
+    # - name: import db on vagrant
+    #   command: wp db import {{ dest_homedir.stdout }}/{{ site }}_{{ src }}_{{ ansible_date_time.epoch }}.sql
+    #   args:
+    #     chdir: "{{ project_local_web_path }}"
+
+    # - name: wp-cli search-replace on domain names
+    #   command: wp search-replace {{ hostvars[groups[src][0]].wordpress_sites[site]['site_hosts'][0]['canonical'] }} {{ wordpress_sites[site]['site_hosts'][0]['canonical'] }}
+    #   args:
+    #     chdir: "{{ site_path }}"
 
 - name: Sync WP database
   hosts: web:&{{ dest }}
@@ -108,7 +146,7 @@
       args:
         chdir: "{{ site_path }}"
 
-- name: Sync WP site
+- name: Sync WP site from remote to remote
   hosts: web:&{{ dest }}
   remote_user: "{{ (dest == 'development') | ternary('vagrant', web_user) }}" # actually, isn't web_user already set to 'vagrant' in dev group_vars?
 
